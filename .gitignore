@@ -1,1 +1,11 @@
 .DS_Store
+skysync_env/
+server/conf/__pycache__
+server/conf/.env
+server/conf/cert
+server/conf/openssl.cnf
+server/__pycache__
+server/shutdown.log
+server/skysync_app.log
+server/uploaded_images
+server/processed_images
