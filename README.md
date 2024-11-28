@@ -1,4 +1,3 @@
-```markdown
 # SkySync Project README
 
 SkySync is an autonomous drone inspection system that automates the process of inspecting bridges and infrastructure. The system includes:
