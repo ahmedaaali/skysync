@@ -104,9 +104,9 @@ def sync_photos(app, mission_name, photo_type):
     """Sync photos between server and client."""
     mission_dir = os.path.join(app.cache_dir, app.username, mission_name)
     os.makedirs(mission_dir, exist_ok=True)
-    
-    # Load or initialize cache.json
-    cache_file = os.path.join(mission_dir, "cache.json")
+
+    # Path for {mission_name}_cache.json
+    cache_file = os.path.join(mission_dir, f"{mission_name}_cache.json")
     try:
         if os.path.exists(cache_file):
             with open(cache_file, "r") as f:
@@ -117,16 +117,16 @@ def sync_photos(app, mission_name, photo_type):
         logging.error(f"Error reading cache file {cache_file}: {e}")
         utils.show_error_message_box(app, f"Error reading cache file: {e}")
         cached_photos = {}
-    
+
     # Ensure cached_photos is structured as a dict
     if not isinstance(cached_photos, dict):
         logging.warning(f"Invalid cache structure in {cache_file}. Resetting to empty dict.")
         cached_photos = {}
-    
+
     # Prepare request data
     headers = {"x-access-token": app.token}
     data = {"cached_photos": cached_photos}
-    
+
     # Send cached data to the server and fetch new photos
     try:
         response = requests.post(
@@ -136,12 +136,13 @@ def sync_photos(app, mission_name, photo_type):
             verify=app.CERT_PATH,
         )
         if response.status_code == 200:
-            new_photos = response.json()  
+            new_photos = response.json()
             for pt, photos in new_photos.items():
+                photo_type_dir = os.path.join(mission_dir, pt)
+                os.makedirs(photo_type_dir, exist_ok=True)
                 download_new_photos(app, mission_name, pt, photos)
-            # Update cache.json
-            for pt, photos in new_photos.items():
                 cached_photos.setdefault(pt, []).extend(photos)
+            # Save all cached photos into {mission_name}_cache.json
             with open(cache_file, "w") as f:
                 json.dump(cached_photos, f)
         else:
@@ -151,29 +152,31 @@ def sync_photos(app, mission_name, photo_type):
         logging.error(f"Error syncing photos: {e}")
 
 def load_cache(cache_file):
-    """Load cached photos from cache.json."""
+    """Load cached photos from {mission_name}_cache.json."""
     try:
         if os.path.exists(cache_file):
             with open(cache_file, "r") as f:
                 cached_photos = json.load(f)
         else:
-            cached_photos = []
+            cached_photos = {}
     except (json.JSONDecodeError, IOError) as e:
-        logging.error(f"Error reading cache file {cache_file}: {e}. Resetting to empty list.")
-        cached_photos = []
-    if not isinstance(cached_photos, list):
-        logging.warning(f"Invalid cache structure in {cache_file}. Resetting to empty list.")
-        cached_photos = []
+        logging.error(f"Error reading cache file {cache_file}: {e}. Resetting to empty dict.")
+        cached_photos = {}
+    if not isinstance(cached_photos, dict):
+        logging.warning(f"Invalid cache structure in {cache_file}. Resetting to empty dict.")
+        cached_photos = {}
     return cached_photos
 
 def download_new_photos(app, mission_name, photo_type, new_photos):
     """Download new photos from the server and update the cache."""
-    cache_dir = os.path.join(app.cache_dir, app.username, mission_name, photo_type)
-    os.makedirs(cache_dir, exist_ok=True)
-    cache_file = os.path.join(cache_dir, "{mission_name}_cache.json")
+    mission_dir = os.path.join(app.cache_dir, app.username, mission_name)
+    photo_type_dir = os.path.join(mission_dir, photo_type)
+    os.makedirs(photo_type_dir, exist_ok=True)
+
+    cache_file = os.path.join(mission_dir, f"{mission_name}_cache.json")
 
     for photo in new_photos:
-        local_path = os.path.join(cache_dir, photo)
+        local_path = os.path.join(photo_type_dir, photo)
         if not os.path.exists(local_path):
             try:
                 response = requests.get(
@@ -192,12 +195,20 @@ def download_new_photos(app, mission_name, photo_type, new_photos):
             except requests.RequestException as e:
                 logging.error(f"Error downloading image {photo}: {e}")
 
-    # Update cache.json
+    # Update {mission_name}_cache.json
     try:
-        existing_cache = load_cache(cache_file)
-        updated_cache = list(set(existing_cache + new_photos))
+        if os.path.exists(cache_file):
+            with open(cache_file, "r") as f:
+                cached_photos = json.load(f)
+        else:
+            cached_photos = {}
+
+        if not isinstance(cached_photos, dict):
+            cached_photos = {}
+
+        cached_photos.setdefault(photo_type, []).extend(new_photos)
         with open(cache_file, "w") as f:
-            json.dump(updated_cache, f)
+            json.dump(cached_photos, f)
     except IOError as e:
         logging.error(f"Error updating cache.json: {e}")
 
@@ -206,18 +217,22 @@ def load_photos(app, photo_type):
     if not app.mission_name or not photo_type:
         return
 
-    app.photo_type = photo_type  
+    app.photo_type = photo_type
     sync_photos(app, app.mission_name, photo_type)
-    
+
+    cache_file = os.path.join(app.cache_dir, app.username, app.mission_name, f"{app.mission_name}_cache.json")
+    cached_photos = load_cache(cache_file)
+
     if photo_type == "All":
-        cached_dirs = [
-            os.path.join(app.cache_dir, app.username, app.mission_name, pt)
-            for pt in ["Unprocessed", "Crack", "Spall", "Corrosion"]
+        photos = [
+            {"filename": filename, "photo_type": pt}
+            for pt, files in cached_photos.items()
+            for filename in files
         ]
     else:
-        cached_dirs = [os.path.join(app.cache_dir, app.username, app.mission_name, photo_type)]
+        photos = [{"filename": f, "photo_type": photo_type} for f in cached_photos.get(photo_type, [])]
 
-    display_cached_photos(app, cached_dirs)
+    display_cached_photos(app, photos)
 
 def get_cached_image(app, photo):
     """Get the local path to a cached image."""
@@ -321,25 +336,91 @@ def get_cached_image(app, photo):
         logging.info(f"Using cached image: {local_image_path}")
     return local_image_path
 
-def display_cached_photos(app, cached_dirs):
+def display_cached_photos(app, photos):
     """Display cached photos from the local directories."""
     utils.clear_frame(app, app.photos_frame)
-    app.photo_images = []  
-    photos = []
-
-    for cached_dir in cached_dirs:
-        photo_type = os.path.basename(cached_dir)
-        try:
-            for f in os.listdir(cached_dir):
-                if os.path.isfile(os.path.join(cached_dir, f)) and f != "cache.json":
-                    photos.append({"filename": f, "photo_type": photo_type})
-        except FileNotFoundError as e:
-            logging.error(f"Error accessing cached directory {cached_dir}: {e}")
-
+    app.photo_images = []  # Prevent garbage collection
     if not photos:
         display_no_photos(app)
-    else:
-        display_photos(app, photos)
+        return
+
+    # Create a scrollable canvas for the photo display
+    canvas = tk.Canvas(app.photos_frame, highlightthickness=0, bd=0)
+    scrollbar = ttk.Scrollbar(app.photos_frame, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=scrollbar.set)
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # Create an inner frame for the content inside the canvas
+    photo_inner_frame = ttk.Frame(canvas)
+    canvas.create_window((0, 0), window=photo_inner_frame, anchor="nw")
+
+    # Update the scrollable region when the inner frame's size changes
+    photo_inner_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+
+    # Keep track of loaded images
+    columns, thumbnail_size, pady = 5, 200, 10
+    row, col = 0, 0
+
+    for photo in photos:
+        photo_type = photo.get("photo_type")
+        filename = photo.get("filename")
+        if not filename or not photo_type:
+            continue
+
+        # Construct the full path to the photo
+        mission_dir = os.path.join(app.cache_dir, app.username, app.mission_name)
+        photo_type_dir = os.path.join(mission_dir, photo_type)
+        local_image_path = os.path.join(photo_type_dir, filename)
+
+        if not os.path.exists(local_image_path):
+            logging.warning(f"Image file {local_image_path} does not exist. Skipping.")
+            continue
+
+        try:
+            # Load and resize the photo
+            image = Image.open(local_image_path)
+            image.thumbnail((thumbnail_size, thumbnail_size))
+            photo_image = ImageTk.PhotoImage(image)
+            app.photo_images.append(photo_image)  # Prevent garbage collection
+
+            # Determine padding
+            if col == 0:
+                padx = (0, 5)
+            elif col == columns - 1:
+                padx = (5, 0)
+            else:
+                padx = (5, 5)
+
+            # Add image label
+            image_label = tk.Label(photo_inner_frame, image=photo_image)
+            image_label.grid(row=row, column=col, padx=padx, pady=pady)
+
+            # Add a status label if applicable
+            if photo_type in ["Crack", "Spall", "Corrosion"]:
+                status_label = tk.Label(
+                    photo_inner_frame,
+                    text=f"Type: {photo_type}",
+                    font=("Helvetica", 10),
+                    fg="blue"
+                )
+                status_label.grid(row=row + 1, column=col, padx=padx, pady=2)
+
+            # Handle column wrapping
+            col += 1
+            if col >= columns:
+                col = 0
+                row += 2
+
+        except Exception as e:
+            logging.error(f"Error displaying image {local_image_path}: {e}")
+
+    # If no photos were displayed, show "No photos found"
+    if not app.photo_images:
+        display_no_photos(app)
 
 def display_photos(app, photos):
     """Display photos in a grid layout."""

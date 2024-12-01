@@ -81,7 +81,7 @@ def update_configuration(verbose=False, regenerate_cert=False):
     cert_exists = os.path.exists(cert_path)
 
     # Re-copy cert if certs are missing or regenerate_cert is True
-    if not cert_exists or regenerate_cert:
+    if ip_changed or not cert_exists or regenerate_cert:
         sync_cert_from_server(cert_path, server_cert_dir, verbose)
     else:
         log("Certificate already exist; skipping cert copying.")

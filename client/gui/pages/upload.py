@@ -9,6 +9,9 @@ from .. import utils
 
 def show_upload_page(app):
     """Displays the Upload Images page."""
+    if not hasattr(app, 'check_vars'):
+        app.check_vars = []
+
     # Clear the display frame and set the page title
     utils.clear_display_frame(app)
     utils.create_title(app, "Upload Mission Images", font_size=30)
@@ -171,6 +174,7 @@ def on_mission_select(app, mission):
     if hasattr(app, 'selected_mission') and app.selected_mission != mission:
         # Clear previous images and uploaded status when a new mission is selected
         app.selected_images = []
+        app.check_vars = []
         app.uploaded_images = {}
     logging.info(f"Mission selected: {mission}")
     app.selected_mission = mission
@@ -178,6 +182,16 @@ def on_mission_select(app, mission):
 
 def remove_selected_images(app):
     """Removes selected images from the list and reorders the display."""
+    # Check if a mission is selected
+    if not hasattr(app, 'selected_mission') or not app.selected_mission:
+        show_upload_error_message(app, "Please select a mission first.")
+        return
+
+    # Check if any photos are selected
+    if not hasattr(app, 'check_vars') or not app.check_vars or not any(check_var.get() for _, check_var in app.check_vars):
+        show_upload_error_message(app, "Please select photos first.")
+        return
+
     selected_to_remove = [image_path for image_path, check_var in app.check_vars if check_var.get()]
     app.selected_images = [image for image in app.selected_images if image not in selected_to_remove]
 

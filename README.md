@@ -234,7 +234,31 @@ CERT_PATH=/path/to/skysync/server/conf/cert/cert.pem
 KEY_PATH=/path/to/skysync/server/conf/cert/key.pem
 LOG_PATH=/path/to/skysync/server/skysync_app.log
 ```
-Replace `/path/to/skysync` with the actual path to your `skysync` directory, and `your_secret_key` with a secure, random string.
+
+Create an `openssl.cnf` file in the `server/conf` directory with the following content:
+```
+[ req ]
+default_bits        = 2048
+default_md          = sha256
+default_keyfile     = key.pem
+prompt              = no
+encrypt_key         = yes
+distinguished_name  = req_distinguished_name
+x509_extensions     = v3_req
+
+[ req_distinguished_name ]
+C                   = CA
+ST                  = Ontario
+L                   = Ottawa
+O                   = SkySync
+OU                  = Admin
+CN                  = Ahmed
+
+[ v3_req ]
+subjectAltName      = @alt_names
+
+[ alt_names ]
+```
 
 ### 6. SSL Certificate Setup
 1. Navigate to the `conf` directory:
@@ -262,11 +286,16 @@ options:
   -g, --run-gui         Start the Server GUI.
 ```
 
-1. Navigate to the server directory:
+1. Open a new terminal window, activate the virtual environment, and navigate to the server directory:
    ```bash
-   cd ../
+   cd server
+   source ../venv/bin/activate # For Windows: ..\venv\Scripts\activate
    ```
-2. Run the server using the provided script:
+2. Update server configuration:
+   ```bash
+   python conf/update_server_conf.py -v
+   ```
+3. Run the server using the provided script:
    ```bash
    python server.py -v -g
    ```
@@ -291,7 +320,11 @@ options:
    cd client
    source ../venv/bin/activate # For Windows: ..\venv\Scripts\activate
    ```
-2. Run the client application:
+2. Update client configuration:
+   ```bash
+   python conf/update_client_conf.py -v
+   ```
+4. Run the client application:
    ```bash
    python client.py -v
    ```
@@ -357,4 +390,4 @@ Contributions are welcome! Please fork the repository and create a pull request 
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the Apache-2.0 License.
