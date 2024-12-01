@@ -25,6 +25,36 @@ def update_configuration(verbose=False, regenerate_cert=False):
     # Ensure necessary directories exist
     os.makedirs(cert_dir, exist_ok=True)
 
+    # Ensure openssl.cnf exists with correct format
+    if not os.path.exists(openssl_cnf_path):
+        log("openssl.cnf not found. Creating a new one.")
+        openssl_cnf_content = """[ req ]
+                                default_bits        = 2048
+                                default_md          = sha256
+                                default_keyfile     = key.pem
+                                prompt              = no
+                                encrypt_key         = yes
+                                distinguished_name  = req_distinguished_name
+                                x509_extensions     = v3_req
+
+                                [ req_distinguished_name ]
+                                C                   = CA
+                                ST                  = Ontario
+                                L                   = Ottawa
+                                O                   = SkySync
+                                OU                  = Admin
+                                CN                  = Ahmed
+
+                                [ v3_req ]
+                                subjectAltName      = @alt_names
+
+                                [ alt_names ]
+                                """
+
+        with open(openssl_cnf_path, 'w') as file:
+            file.write(openssl_cnf_content)
+        log(f"Created openssl.cnf at {openssl_cnf_path}")
+
     # Load existing environment variables from .env
     load_dotenv(env_path)
     existing_env_vars = dotenv_values(env_path)
@@ -57,7 +87,6 @@ def update_configuration(verbose=False, regenerate_cert=False):
 
     # Construct the updated SERVER_URL
     updated_server_url = urlunparse((scheme, f"{hostname}:{port}", '', '', '', ''))
-    ip_changed = existing_server_url != updated_server_url
 
     # Update or set essential .env variables
     paths_to_update = {
@@ -92,6 +121,7 @@ def update_configuration(verbose=False, regenerate_cert=False):
 
     existing_ips = {line.split('=')[1].strip() for line in lines if line.strip().startswith('IP.')}
     if current_ip not in existing_ips:
+        ip_changed = True
         last_ip_index = max(
             [int(line.split('=')[0].strip().split('.')[1]) for line in lines if line.strip().startswith('IP.')],
             default=0
@@ -101,6 +131,7 @@ def update_configuration(verbose=False, regenerate_cert=False):
             file.write(new_ip_entry)
         log(f"Added {current_ip} as IP.{last_ip_index + 1} in openssl.cnf")
     else:
+        ip_changed = False
         log(f"{current_ip} already exists in openssl.cnf")
 
     # Check if cert and key already exist
