@@ -8,11 +8,18 @@ from models import Mission, Photo
 
 missions_blueprint = Blueprint('missions', __name__)
 
-DATABASE_URL = os.getenv('DATABASE_URL')
-engine = create_engine(DATABASE_URL)
-Session = sessionmaker(bind=engine)
+def get_server_manager():
+    """Retrieve the server manager instance attached to the blueprint."""
+    server_manager = getattr(missions_blueprint, 'server_manager', None)
+    if not server_manager:
+        raise RuntimeError("ServerManager not passed to missions_blueprint.")
+    return server_manager
 
-BASE_PROCESSED_FOLDER = 'processed_images'
+def get_database_session():
+    """Retrieve a database session from the server manager."""
+    server_manager = get_server_manager()
+    Session = server_manager.get_database_session()
+    return Session()
 
 @missions_blueprint.route('/missions/create_mission', methods=['POST'])
 @token_required
@@ -21,7 +28,7 @@ def create_mission(current_user):
     if not mission_name:
         return jsonify({"error": "Mission name is required"}), 400
 
-    session = Session()
+    session = get_database_session()
 
     # Check if the mission already exists for the user
     existing_mission = session.query(Mission).filter_by(username=current_user, mission_name=mission_name).first()
@@ -35,8 +42,9 @@ def create_mission(current_user):
     session.commit()
 
     # Create folder structure
-    user_uploaded_folder = os.path.join("uploaded_images", current_user, mission_name)
-    user_processed_folder = os.path.join("processed_images", current_user, mission_name)
+    server_manager = get_server_manager()
+    user_uploaded_folder = os.path.join(server_manager.UPLOADED_IMAGES_PATH, current_user, mission_name)
+    user_processed_folder = os.path.join(server_manager.PROCESSED_IMAGES_PATH, current_user, mission_name)
 
     os.makedirs(user_uploaded_folder, exist_ok=True)
     os.makedirs(user_processed_folder, exist_ok=True)
@@ -50,7 +58,7 @@ def create_mission(current_user):
 @missions_blueprint.route('/missions/get_missions', methods=['GET'])
 @token_required
 def get_missions(current_user):
-    session = Session()
+    session = get_database_session()
     missions = session.query(Mission).filter_by(username=current_user).all()
     mission_names = [mission.mission_name for mission in missions]
     session.close()
@@ -60,7 +68,7 @@ def get_missions(current_user):
 @missions_blueprint.route('/missions/<mission_name>/photo_types', methods=['GET'])
 @token_required
 def get_photo_types(current_user, mission_name):
-    session = Session()
+    session = get_database_session()
     try:
         # Fetch the mission
         mission = session.query(Mission).filter_by(username=current_user, mission_name=mission_name).first()
@@ -86,7 +94,7 @@ def get_photo_types(current_user, mission_name):
 @token_required
 def get_new_photos(current_user, mission_name):
     """Fetch new photos by comparing client's cache.json with server's database."""
-    session = Session()
+    session = get_database_session()
     try:
         client_cache = request.json.get("cached_photos", {})
         if not isinstance(client_cache, dict):
@@ -132,15 +140,16 @@ def download_photo(current_user, mission_name, filename):
     if filename == "cache.json":
         return jsonify({"error": "Photo not found"}), 404
 
-    session = Session()
+    session = get_database_session()
     try:
         mission = session.query(Mission).filter_by(username=current_user, mission_name=mission_name).first()
         if not mission:
             return jsonify({"error": "Mission not found"}), 404
 
         # Paths
-        uploaded_folder = os.path.join("uploaded_images", current_user, mission_name)
-        processed_folder = os.path.join("processed_images", current_user, mission_name)
+        server_manager = get_server_manager()
+        uploaded_folder = os.path.join(server_manager.UPLOADED_IMAGES_PATH, current_user, mission_name)
+        processed_folder = os.path.join(server_manager.PROCESSED_IMAGES_PATH, current_user, mission_name)
 
         # Serve uploaded photos
         uploaded_path = os.path.join(uploaded_folder, filename)

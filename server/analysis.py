@@ -21,12 +21,18 @@ celery.conf.update(
     broker_connection_retry_on_startup=True
 )
 
-# Database setup
-DATABASE_URL = os.getenv('DATABASE_URL')
-engine = create_engine(DATABASE_URL)
-Session = sessionmaker(bind=engine)
+def get_server_manager():
+    """Retrieve the server manager instance attached to the blueprint."""
+    server_manager = getattr(analysis_blueprint, 'server_manager', None)
+    if not server_manager:
+        raise RuntimeError("ServerManager not passed to analysis_blueprint.")
+    return server_manager
 
-BASE_PROCESSED_FOLDER = 'processed_images'
+def get_database_session():
+    """Retrieve a database session from the server manager."""
+    server_manager = get_server_manager()
+    Session = server_manager.get_database_session()
+    return Session()
 
 @analysis_blueprint.route('/analyze', methods=['POST'])
 @token_required
@@ -44,7 +50,7 @@ def analyze_photos(current_user):
 @celery.task
 def run_analysis(username, mission_name):
     """Background task to analyze photos."""
-    session = Session()
+    session = get_database_session()
     try:
         mission = session.query(Mission).filter_by(username=username, mission_name=mission_name).first()
         if not mission:
@@ -61,8 +67,9 @@ def run_analysis(username, mission_name):
             return
 
         for photo in photos:
-            user_upload_folder = os.path.join('uploaded_images', username, mission_name)
-            user_processed_folder = os.path.join(BASE_PROCESSED_FOLDER, username, mission_name)
+            server_manager = get_server_manager()
+            user_upload_folder = os.path.join(server_manager.UPLOADED_IMAGES_PATH, username, mission_name)
+            user_processed_folder = os.path.join(server_manager.PROCESSED_IMAGES_PATH, username, mission_name)
             os.makedirs(user_processed_folder, exist_ok=True)
 
             original_path = os.path.join(user_upload_folder, photo.filename)

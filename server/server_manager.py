@@ -8,6 +8,8 @@ from flask import Flask
 import logging
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from auth import auth_blueprint
 from photos import photos_blueprint
@@ -24,6 +26,9 @@ class ServerManager:
         """Initialize server manager and load configurations."""
         self.ENV_PATH = os.path.join(os.path.dirname(__file__), 'conf', '.env')
         self._load_and_validate_env()
+
+        self.UPLOADED_IMAGES_PATH = os.path.join(self.SERVER_PATH, "uploaded_images")
+        self.PROCESSED_IMAGES_PATH = os.path.join(self.SERVER_PATH, "processed_images")
 
         # Extract host and port from SERVER_URL
         parsed_url = urlparse(self.SERVER_URL)
@@ -82,7 +87,7 @@ class ServerManager:
         """Load and validate required environment variables."""
         if not os.path.exists(self.ENV_PATH):
             raise FileNotFoundError(f".env file not found at {self.ENV_PATH}")
-        load_dotenv(self.ENV_PATH)
+        load_dotenv(self.ENV_PATH, override=True)
 
         # Load required variables
         self.SERVER_PATH = os.getenv('SERVER_PATH')
@@ -93,9 +98,16 @@ class ServerManager:
         self.SECRET_KEY = os.getenv('SECRET_KEY')
         self.DATABASE_URL = os.getenv('DATABASE_URL')
 
+        logging.info(f"SERVER_PATH: {self.SERVER_PATH}")
+        logging.info(f"DATABASE_URL: {self.DATABASE_URL}")
         # Validate required variables
         if not all([self.SECRET_KEY, self.DATABASE_URL, self.CERT_PATH, self.KEY_PATH]):
             raise ValueError("One or more required environment variables are missing.")
+
+    def get_database_session(self):
+        """Provide a new database session."""
+        engine = create_engine(self.DATABASE_URL)
+        return sessionmaker(bind=engine)
 
     def create_app(self):
         """Create and configure the Flask application."""

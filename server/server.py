@@ -4,11 +4,12 @@ import signal
 import argparse
 
 # Import the ServerManager and define the `app` at the module level
+from conf.update_server_conf import update_configuration
 from server_manager import ServerManager
-from missions import missions_blueprint
-from photos import photos_blueprint
 from analysis import analysis_blueprint
 from auth import auth_blueprint
+from missions import missions_blueprint
+from photos import photos_blueprint
 
 # Ensure the current directory is in the sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -19,11 +20,17 @@ server_manager = ServerManager()
 # Define the app for Gunicorn
 app = server_manager.create_app()
 
+# Pass server_manager to blueprints
+analysis_blueprint.server_manager = server_manager
+auth_blueprint.server_manager = server_manager
+missions_blueprint.server_manager = server_manager
+photos_blueprint.server_manager = server_manager
+
 # Register blueprints
-app.register_blueprint(photos_blueprint)
 app.register_blueprint(analysis_blueprint)
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(missions_blueprint)
+app.register_blueprint(photos_blueprint)
 
 if __name__ == "__main__":
     # Parse arguments for configuration and runtime options
@@ -50,8 +57,10 @@ if __name__ == "__main__":
     # Display help message if requested (automatically handled by argparse)
 
     # Update configuration based on arguments
-    from conf.update_server_conf import update_configuration
     update_configuration(verbose=args.verbose, regenerate_cert=args.regenerate_cert)
+
+    # FIXME:
+    # Updated ENV vairables aren't being used, update conf script needs to be run beforehand. Need a way to wait for update_configuration to execute before initializing or executing anything else
 
     # Set up signal handlers for clean shutdown
     signal.signal(signal.SIGINT, server_manager.handle_signal)

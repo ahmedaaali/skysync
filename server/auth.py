@@ -8,16 +8,21 @@ import datetime
 import logging
 from functools import wraps
 from models import User
-from dotenv import load_dotenv
-
-load_dotenv(os.path.join(os.path.dirname(__file__), 'conf', '.env'))
 
 auth_blueprint = Blueprint('auth', __name__)
 
-# Database setup
-DATABASE_URL = os.getenv('DATABASE_URL')
-engine = create_engine(DATABASE_URL)
-Session = sessionmaker(bind=engine)
+def get_server_manager():
+    """Retrieve the server manager instance attached to the blueprint."""
+    server_manager = getattr(auth_blueprint, 'server_manager', None)
+    if not server_manager:
+        raise RuntimeError("ServerManager not passed to auth_blueprint.")
+    return server_manager
+
+def get_database_session():
+    """Retrieve a database session from the server manager."""
+    server_manager = get_server_manager()
+    Session = server_manager.get_database_session()
+    return Session()
 
 def token_required(f):
     """Decorator to check for a valid JWT token."""
@@ -49,7 +54,7 @@ def register_user():
     if len(username) < 3 or len(password) < 6:
         return jsonify({"error": "Invalid username or password length."}), 400
 
-    session = Session()
+    session = get_database_session()
     try:
         if session.query(User).filter_by(username=username).first():
             return jsonify({"error": "Username already exists"}), 409
@@ -76,7 +81,7 @@ def login_user():
     if not username or not password:
         return jsonify({"error": "Username and password are required."}), 400
 
-    session = Session()
+    session = get_database_session()
     try:
         user = session.query(User).filter_by(username=username).first()
         if user and bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
@@ -112,7 +117,7 @@ def change_password(current_user):
     if len(new_password) < 8:
         return jsonify({"error": "New password must be at least 8 characters long."}), 400
 
-    session = Session()
+    session = get_database_session()
     try:
         # Find the user by username
         user = session.query(User).filter_by(username=current_user).first()
