@@ -24,6 +24,7 @@ def show_team_page(app):
         text="",
         font=app.body_font,
         text_color=app.text_color,
+        fg_color=app.bg_color,
         wraplength=800,
         justify="left"
     )

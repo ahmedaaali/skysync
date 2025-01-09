@@ -102,6 +102,19 @@ python3 -m venv venv
 
 ### 3. Install System Dependencies
 
+#### Python3-tk
+- **macOS**:
+  ```bash
+  brew install python3-tk
+  ```
+- **Linux**:
+  ```bash
+  sudo apt install python3-tk
+  ```
+- **Windows**:  
+  Download and install OpenSSL from [slproweb.com](https://slproweb.com/).
+  Python3-tk is included with the standard Python installer on Windows, but if it's missing, reinstall Python from [python.org](https://www.python.org/) and ensure the tkinter module is selected during installation.
+
 #### OpenSSL
 - **macOS**:
   ```bash
@@ -124,6 +137,7 @@ python3 -m venv venv
   ```bash
   sudo apt install postgresql postgresql-contrib
   sudo service postgresql start
+  sudo systemctl start postgresql
   ```
 - **Windows**:  
   Download and install PostgreSQL from [postgresql.org](https://www.postgresql.org/).
@@ -181,7 +195,7 @@ ordered-set==4.1.0
 packaging==24.2
 pillow==11.0.0
 prompt_toolkit==3.0.48
-psycopg2==2.9.10
+psycopg2-binary==2.9.10
 Pygments==2.18.0
 PyJWT==2.10.0
 python-dateutil==2.9.0.post0
@@ -210,12 +224,20 @@ or
 
 1. Connect to the PostgreSQL shell:
    ```bash
-   psql -U postgres
+   sudo -u postgres psql
    ```
 2. Run the following commands:
    ```sql
    CREATE DATABASE skysync_db;
    CREATE USER skysync_user WITH PASSWORD 'yourpassword';
+   GRANT ALL PRIVILEGES ON DATABASE skysync_db TO skysync_user;
+   GRANT USAGE ON SCHEMA public TO skysync_user;
+   GRANT CREATE ON SCHEMA public TO skysync_user;
+   ALTER ROLE skysync_user SET search_path TO public;
+   \c skysync_db
+   ALTER SCHEMA public OWNER TO skysync_user;
+   GRANT ALL ON SCHEMA public TO skysync_user;
+   GRANT CREATE ON SCHEMA public TO skysync_user;
    GRANT ALL PRIVILEGES ON DATABASE skysync_db TO skysync_user;
    ```
 3. Exit the PostgreSQL shell:

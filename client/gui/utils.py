@@ -88,13 +88,14 @@ def create_button(app, parent, text, command, pady=10, **kwargs):
     button.pack(pady=pady)
     return button
 
-def create_label(app, parent, text, font=None, text_color=None, pady=10, **kwargs):
+def create_label(app, parent, text, font=None, text_color=None, fg_color=None, pady=10, **kwargs):
     """Helper method to create labels with consistent styles."""
     label = ctk.CTkLabel(
         parent,
         text=text,
         font=font or app.body_font,
         text_color=text_color or app.text_color,
+        fg_color=fg_color or app.bg_color,
         **kwargs
     )
     label.pack(pady=pady)
