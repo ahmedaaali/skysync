@@ -107,7 +107,7 @@ def run_yolov11_inference_on_folder(input_folder, output_folder, model_path):
     results = model.predict(
         source=input_folder,  #Input folder path
         conf=0.4,             #Confidence threshold - anything that is 40% or more sure that its a crack will be classified
-        save=True,            #Save predictions - This default saves to a 'model_directory/runs/detect/predict' directory (creates it automatically if necessary)
+        save=True            #Save predictions - This default saves to a 'model_directory/runs/detect/predict' directory (creates it automatically if necessary)
     )
 
     model_dir = os.path.dirname(model_path) #Grab model's dir which holds the processed images
