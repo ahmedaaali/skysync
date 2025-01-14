@@ -8,6 +8,8 @@ import shutil
 import random
 import logging
 from models import Photo, Mission
+from ultralytics import YOLO
+
 
 analysis_blueprint = Blueprint('analysis', __name__)
 
@@ -66,26 +68,25 @@ def run_analysis(username, mission_name):
         if not photos:
             return
 
-        for photo in photos:
-            server_manager = get_server_manager()
-            user_upload_folder = os.path.join(server_manager.UPLOADED_IMAGES_PATH, username, mission_name)
-            user_processed_folder = os.path.join(server_manager.PROCESSED_IMAGES_PATH, username, mission_name)
-            os.makedirs(user_processed_folder, exist_ok=True)
+        server_manager = get_server_manager()
+        user_upload_folder = os.path.join(server_manager.UPLOADED_IMAGES_PATH, username, mission_name)
+        user_processed_folder = os.path.join(server_manager.PROCESSED_IMAGES_PATH, username, mission_name)
+        os.makedirs(user_processed_folder, exist_ok=True)
 
-            original_path = os.path.join(user_upload_folder, photo.filename)
-            processed_path = os.path.join(user_processed_folder, photo.filename)
+        #Run YOLOv11 inference on the folder - this returns a dictionary with the dict key being the filename and the dict value being "crack" or "unknown"
+        results = run_yolov11_inference_on_folder(user_upload_folder, user_processed_folder, model_path)
 
-            # Run YOLOv11 inference
-            photo_type = run_yolov11_inference(original_path, processed_path)
+        # Update database with results
+        for photo_filename, category in results.items():
+            photo = session.query(Photo).filter_by(mission_id=mission.id, filename=photo_filename).first()
+            if photo:
+                photo.photo_type = category  # Save "crack" or "unknown"
+                photo.is_new_image = False
 
-            # Organize the processed image into the type folder
-            type_folder = os.path.join(user_processed_folder, photo_type)
-            os.makedirs(type_folder, exist_ok=True)
-            shutil.move(processed_path, os.path.join(type_folder, photo.filename))
-
-            # Update the database
-            photo.photo_type = photo_type
-            photo.is_new_image = False
+        # Organize the processed image into the type folder
+        #type_folder = os.path.join(user_processed_folder, photo_type)
+        #os.makedirs(type_folder, exist_ok=True)
+        #shutil.move(processed_path, os.path.join(type_folder, photo.filename))
 
         session.commit()
     except Exception as e:
@@ -93,10 +94,42 @@ def run_analysis(username, mission_name):
     finally:
         session.close()
 
-def run_yolov11_inference(input_path, output_path):
-    """Placeholder function to run YOLOv11 inference."""
-    # Simulate processing by copying the file and assigning a random type
-    shutil.copy(input_path, output_path)
-    photo_type = f"type_{random.randint(1,3)}"
-    return photo_type
+
+def run_yolov11_inference_on_folder(input_folder, output_folder, model_path):
+    """
+    Run YOLOv11 inference on all images in a folder and classify images as "crack" or "unknown" organized in a dict
+    """ 
+    
+    #Load the model from its path
+    model = YOLO(model_path)
+
+    #Now we run our inference on all images in the folder
+    results = model.predict(
+        source=input_folder,  #Input folder path
+        conf=0.4,             #Confidence threshold - anything that is 40% or more sure that its a crack will be classified
+        save=True,            #Save predictions - This default saves to a 'model_directory/runs/detect/predict' directory (creates it automatically if necessary)
+    )
+
+    model_dir = os.path.dirname(model_path) #Grab model's dir which holds the processed images
+    default_save_dir = os.path.join(model_dir, "runs", "detect", "predict") #The model saves everything to this directory by default
+    if os.path.exists(default_save_dir):
+        shutil.copytree(default_save_dir, output_folder, dirs_exist_ok=True)
+
+    image_categories = {}
+
+    for result in results:
+        #Categorize by "crack" if a detection exists else its "unknown"
+        if len(result.boxes) > 0:
+            category = "crack" 
+        else:
+            category = "unknown"
+
+        #Extract filename of the specific image from its path
+        photo_filename = result.path.split(os.sep)[-1]
+
+        # Store the result in the dictionary
+        image_categories[photo_filename] = category
+
+    return image_categories
+
 
