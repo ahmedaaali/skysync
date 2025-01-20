@@ -255,6 +255,7 @@ SERVER_PATH=/path/to/skysync/server
 CERT_PATH=/path/to/skysync/server/conf/cert/cert.pem
 KEY_PATH=/path/to/skysync/server/conf/cert/key.pem
 LOG_PATH=/path/to/skysync/server/skysync_app.log
+model_path=/path/to/skysync/machine_learning/best.pt
 ```
 
 Create an `openssl.cnf` file in the `server/conf` directory with the following content:
