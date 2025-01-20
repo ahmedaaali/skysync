@@ -99,6 +99,13 @@ def run_yolov11_inference_on_folder(input_folder, output_folder, model_path):
     """
     Run YOLOv11 inference on all images in a folder and classify images as "crack" or "unknown" organized in a dict
     """ 
+
+    output_dir_parent = os.path.dirname(output_folder) #Grab output directory's parent name to pass it to the predict call -> "path\to\skysync" becomes now "path\to"
+    output_dir_child = os.path.basename(output_folder) #Grab the output directory's child name to pass it to the predict call -> "path\to\skysync" becomes now "skysync"
+
+    # Remove the output folder to not mistakenly create duplicates 
+    if os.path.exists(output_folder):
+        shutil.rmtree(output_folder)
     
     #Load the model from its path
     model = YOLO(model_path)
@@ -106,14 +113,11 @@ def run_yolov11_inference_on_folder(input_folder, output_folder, model_path):
     #Now we run our inference on all images in the folder
     results = model.predict(
         source=input_folder,  #Input folder path
-        conf=0.4,             #Confidence threshold - anything that is 40% or more sure that its a crack will be classified
-        save=True            #Save predictions - This default saves to a 'model_directory/runs/detect/predict' directory (creates it automatically if necessary)
+        conf=0.393,             #Confidence threshold - anything that is 39.3% or more sure that its a crack will be classified
+        save=True,            #Save predictions
+        project=output_dir_parent, #Gives the parent directory as the project paramerter to know where to save the results
+        name=output_dir_child #Gives the name of the folder to create which is used to store the results -> so now it knows to go the parent dir, ok now lets create this child folder to save results in it
     )
-
-    model_dir = os.path.dirname(model_path) #Grab model's dir which holds the processed images
-    default_save_dir = os.path.join(model_dir, "runs", "detect", "predict") #The model saves everything to this directory by default
-    if os.path.exists(default_save_dir):
-        shutil.copytree(default_save_dir, output_folder, dirs_exist_ok=True)
 
     image_categories = {}
 
