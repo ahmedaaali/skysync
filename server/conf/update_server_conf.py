@@ -21,6 +21,7 @@ def update_configuration(verbose=False, regenerate_cert=False):
     openssl_cnf_path = os.path.join(base_dir, 'conf', 'openssl.cnf')
     log_path = os.path.join(base_dir, 'skysync_app.log')
     client_cert_dir = os.path.join(base_dir, '../client/conf/cert')
+    ml_model_dir = os.path.join(base_dir, '../machine_learning/best.pt')
 
     # Ensure necessary directories exist
     os.makedirs(cert_dir, exist_ok=True)
@@ -96,6 +97,7 @@ def update_configuration(verbose=False, regenerate_cert=False):
         'LOG_PATH': log_path,
         'SERVER_PATH': base_dir,
         'DATABASE_URL': existing_env_vars.get('DATABASE_URL', 'postgresql://skysync_user:password@localhost:5432/skysync_db'),
+        'model_path' : ml_model_dir
     }
 
     # Handle SECRET_KEY separately
