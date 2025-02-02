@@ -33,7 +33,7 @@ class ServerManager:
         # Extract host and port from SERVER_URL
         parsed_url = urlparse(self.SERVER_URL)
         self.SERVER_HOST = parsed_url.hostname
-        self.SERVER_PORT = parsed_url.port
+        self.SERVER_PORT = parsed_url.port or 5001  # Change to a different port if needed
 
         # Gunicorn and Celery commands
         self.GUNICORN_CMD = [
@@ -76,6 +76,8 @@ class ServerManager:
         shutdown_handler.setFormatter(shutdown_formatter)
         self.shutdown_logger.addHandler(shutdown_handler)
         self.shutdown_logger.propagate = False
+
+        self.gunicorn_log_path = os.path.join(self.SERVER_PATH, "gunicorn.log")
 
     def handle_signal(self, signum, frame):
         """Handle OS signals for graceful shutdown."""
@@ -135,10 +137,13 @@ class ServerManager:
 
             print("Starting Gunicorn...")
             gunicorn_proc = subprocess.Popen(
-                self.GUNICORN_CMD,
+                self.GUNICORN_CMD + [
+                    "--log-file", self.gunicorn_log_path,
+                    "--log-level", "debug"
+                ],
                 env=env,
-                stdout=sys.stdout,
-                stderr=sys.stderr,
+                stdout=open(self.gunicorn_log_path, 'a'),
+                stderr=subprocess.STDOUT,
                 preexec_fn=os.setsid
             )
             self.processes.append(("Gunicorn", gunicorn_proc))
@@ -184,7 +189,7 @@ class ServerManager:
                 self.processes.remove((name, proc))
 
     def monitor_processes(self):
-        """Monitor subprocesses and terminate all if one fails."""
+        """Monitor subprocesses and restart Gunicorn if it stops unexpectedly."""
         try:
             while True:
                 for name, proc in self.processes[:]:
@@ -194,6 +199,14 @@ class ServerManager:
                             print("Server GUI process has ended. Stopping all processes.")
                             self.stop_processes(exclude_gui=True)
                             sys.exit(0)
+                        elif name == "Gunicorn":
+                            # Log the reason for Gunicorn stopping
+                            with open(self.gunicorn_log_path, 'r') as log_file:
+                                log_content = log_file.read()
+                                self.shutdown_logger.error(f"Gunicorn process stopped unexpectedly. Log content:\n{log_content}")
+                            # Restart Gunicorn if it stops unexpectedly
+                            print("Gunicorn process has stopped unexpectedly. Restarting...")
+                            self.restart_process("Gunicorn")
                         else:
                             # Handle unexpected process termination
                             print(f"Process '{name}' has stopped unexpectedly.")
@@ -212,7 +225,7 @@ class ServerManager:
         elif name == "Celery":
             cmd = self.CELERY_CMD
         elif name == "Server GUI":
-            cmd = ["python", "server_gui.py"]
+            cmd = ["python", os.path.join(self.SERVER_PATH, "server_gui.py")]
         else:
             self.shutdown_logger.error(f"Unknown process name: {name}")
             return

@@ -71,7 +71,7 @@ def create_mission(app):
         if not mission_name:
             show_home_error_message(app, "Mission name cannot be empty.")
             return
-
+        
         # API request details
         url = f"{app.SERVER_URL}/missions/create_mission"
         headers = {

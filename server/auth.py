@@ -7,7 +7,7 @@ import jwt
 import datetime
 import logging
 from functools import wraps
-from models import User
+from models import User, Admin
 
 auth_blueprint = Blueprint('auth', __name__)
 
@@ -47,6 +47,7 @@ def register_user():
     data = request.get_json()
     username = data.get('username', '').strip()
     password = data.get('password', '')
+    # role = data.get('role', 'client')  # Default role is 'client'
 
     if not username or not password:
         return jsonify({"error": "Username and password are required."}), 400
@@ -63,6 +64,7 @@ def register_user():
         new_user = User(username=username, password_hash=password_hash.decode('utf-8'))
         session.add(new_user)
         session.commit()
+        logging.info(f"User {username} registered successfully.")
         return jsonify({"message": "User registered successfully"}), 201
     except Exception as e:
         logging.error(f"Registration error: {e}")
@@ -84,17 +86,89 @@ def login_user():
     session = get_database_session()
     try:
         user = session.query(User).filter_by(username=username).first()
-        if user and bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
-            token = jwt.encode({
-                'username': username,
-                'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-            }, current_app.config['SECRET_KEY'], algorithm="HS256")
-            return jsonify({"message": "Login successful", "token": token}), 200
+        if user:
+            logging.info(f"User found: {username}")
+            if bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+                token = jwt.encode({
+                    'username': username,
+                    'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+                }, current_app.config['SECRET_KEY'], algorithm="HS256")
+                logging.info(f"Login successful for user: {username}")
+                return jsonify({"message": "Login successful", "token": token}), 200
+            else:
+                logging.warning(f"Invalid password for user: {username}")
+                return jsonify({"error": "Invalid credentials"}), 401
         else:
-            logging.warning(f"Invalid login attempt for user: {username}")
+            logging.warning(f"User not found: {username}")
             return jsonify({"error": "Invalid credentials"}), 401
     except Exception as e:
-        logging.error(f"Login error: {e}")
+        logging.error(f"Login error for user {username}: {e}")
+        return jsonify({"error": "An error occurred during login"}), 500
+    finally:
+        session.close()
+
+@auth_blueprint.route('/registeradmin', methods=['POST'])
+def register_admin():
+    """Endpoint to register a new user."""
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    # role = data.get('role', 'admin') 
+
+    if not username or not password:
+        return jsonify({"error": "Username and password are required."}), 400
+
+    if len(username) < 3 or len(password) < 6:
+        return jsonify({"error": "Invalid username or password length."}), 400
+
+    session = get_database_session()
+    try:
+        if session.query(Admin).filter_by(username=username).first():
+            return jsonify({"error": "Username already exists"}), 409
+
+        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        new_user = Admin(username=username, password_hash=password_hash.decode('utf-8'))
+        session.add(new_user)
+        session.commit()
+        logging.info(f"User {username} registered successfully.")
+        return jsonify({"message": "User registered successfully"}), 201
+    except Exception as e:
+        logging.error(f"Registration error: {e}")
+        session.rollback()
+        return jsonify({"error": "Registration failed"}), 500
+    finally:
+        session.close()
+
+@auth_blueprint.route('/loginadmin', methods=['POST'])
+def login_admin():
+    """Endpoint to authenticate a user and return a JWT token."""
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+
+    if not username or not password:
+        return jsonify({"error": "Username and password are required."}), 400
+
+    session = get_database_session()
+    try:
+        user = session.query(Admin).filter_by(username=username).first()
+        if user:
+            logging.info(f"User found: {username}")
+            if bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+                token = jwt.encode({
+                    'username': username,
+                    'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+                }, current_app.config['SECRET_KEY'], algorithm="HS256")
+                logging.info(f"Login successful for user: {username}")
+                return jsonify({"message": "Login successful", "token": token}), 200
+            else:
+                logging.warning(f"Invalid password for user: {username}")
+                return jsonify({"error": "Invalid credentials"}), 401
+        else:
+            logging.warning(f"User not found: {username}")
+            return jsonify({"error": "Invalid credentials"}), 401
+    except Exception as e:
+        logging.error(f"Login error for user {username}: {e}")
         return jsonify({"error": "An error occurred during login"}), 500
     finally:
         session.close()

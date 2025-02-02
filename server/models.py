@@ -21,7 +21,13 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     profile = Column(String, default='Client User')
 
-# --- New Mission Model ---
+class Admin(Base):
+    __tablename__ = 'admins'
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    profile = Column(String, default='Admin User')
+
 class Mission(Base):
     __tablename__ = 'missions'
     id = Column(Integer, primary_key=True)
