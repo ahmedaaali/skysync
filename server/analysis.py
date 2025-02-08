@@ -73,6 +73,7 @@ def run_analysis(username, mission_name):
         user_processed_folder = os.path.join(server_manager.PROCESSED_IMAGES_PATH, username, mission_name)
         os.makedirs(user_processed_folder, exist_ok=True)
 
+        model_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'machine_learning', 'best.pt'))
         #Run YOLOv11 inference on the folder - this returns a dictionary with the dict key being the filename and the dict value being "crack" or "unknown"
         results = run_yolov11_inference_on_folder(user_upload_folder, user_processed_folder, model_path)
 
