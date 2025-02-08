@@ -42,6 +42,7 @@ SQLAlchemy==2.0.36
 tkinterdnd2==0.4.2
 typing_extensions==4.12.2
 tzdata==2024.2
+ultralytics==8.3.73
 urllib3==2.2.3
 vine==5.1.0
 wcwidth==0.2.13
