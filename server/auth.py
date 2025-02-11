@@ -77,6 +77,7 @@ def login_user():
     data = request.get_json()
     username = data.get('username', '').strip()
     password = data.get('password', '')
+    role = data.get('role', 'client')
 
     if not username or not password:
         return jsonify({"error": "Username and password are required."}), 400
@@ -87,6 +88,7 @@ def login_user():
         if user and bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
             token = jwt.encode({
                 'username': username,
+                'role': role,
                 'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
             }, current_app.config['SECRET_KEY'], algorithm="HS256")
             return jsonify({"message": "Login successful", "token": token}), 200

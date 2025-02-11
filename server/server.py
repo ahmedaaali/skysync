@@ -10,6 +10,7 @@ from analysis import analysis_blueprint
 from auth import auth_blueprint
 from missions import missions_blueprint
 from photos import photos_blueprint
+from drone import drone_blueprint
 
 # Ensure the current directory is in the sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -25,12 +26,14 @@ analysis_blueprint.server_manager = server_manager
 auth_blueprint.server_manager = server_manager
 missions_blueprint.server_manager = server_manager
 photos_blueprint.server_manager = server_manager
+drone_blueprint.server_manager = server_manager
 
 # Register blueprints
 app.register_blueprint(analysis_blueprint)
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(missions_blueprint)
 app.register_blueprint(photos_blueprint)
+app.register_blueprint(drone_blueprint)
 
 if __name__ == "__main__":
     # Parse arguments for configuration and runtime options

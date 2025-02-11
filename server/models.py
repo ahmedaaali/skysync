@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Float, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
+import datetime
 
 Base = declarative_base()
 
@@ -20,6 +21,7 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     profile = Column(String, default='Client User')
+    drone_last_heartbeat = Column(DateTime, default=None)
 
 # --- New Mission Model ---
 class Mission(Base):
@@ -28,4 +30,3 @@ class Mission(Base):
     username = Column(String, nullable=False)
     mission_name = Column(String, nullable=False)
     processed = Column(Boolean, default=False)
-
