@@ -69,9 +69,11 @@ def show_inspection_page(app):
     app.photos_frame.pack(fill='both', expand=True, padx=50, pady=10)
 
     # Restore previously selected mission and photo type if available
-    if hasattr(app, 'mission_name') and app.mission_name in missions:
-        app.mission_var.set(app.mission_name)
-        on_mission_select(app, app.mission_name)  
+    if hasattr(app, 'selected_mission') and app.selected_mission in missions:
+        app.mission_var.set(app.selected_mission)
+        on_mission_select(app, app.selected_mission)
+
+        # If the user had previously selected a photo_type, restore it
         if hasattr(app, 'photo_type') and app.photo_type in ["All", "Crack", "Spall", "Corrosion"]:
             app.photo_type_var.set(app.photo_type)
             load_photos(app, app.photo_type)
@@ -81,9 +83,9 @@ def show_inspection_page(app):
         app.mission_var.set("")  
 
 def on_mission_select(app, mission_name):
-    """Handle mission selection."""
+    """Handle mission selection from the dropdown."""
     # If the selected mission is the same as the current mission, just re-enable and update the dropdown
-    if getattr(app, 'mission_name', None) == mission_name:
+    if getattr(app, 'selected_mission', None) == mission_name:
         app.photo_type_dropdown.configure(values=["All", "Crack", "Spall", "Corrosion"], state="normal")
         return
 
@@ -133,7 +135,8 @@ def sync_photos(app, mission_name, photo_type):
             f"{app.SERVER_URL}/missions/{mission_name}/photos",
             headers=headers,
             json=data,
-            verify=app.CERT_PATH,
+            # verify=app.CERT_PATH,
+            verify=False,
         )
         if response.status_code == 200:
             new_photos = response.json()
@@ -182,7 +185,8 @@ def download_new_photos(app, mission_name, photo_type, new_photos):
                 response = requests.get(
                     f"{app.SERVER_URL}/missions/{mission_name}/photos/{photo}",
                     headers={"x-access-token": app.token},
-                    verify=app.CERT_PATH,
+                    # verify=app.CERT_PATH,
+                    verify=False,
                     stream=True,
                 )
                 if response.status_code == 200:
@@ -214,13 +218,13 @@ def download_new_photos(app, mission_name, photo_type, new_photos):
 
 def load_photos(app, photo_type):
     """Load and display photos from cache."""
-    if not app.mission_name or not photo_type:
+    if not hasattr(app, 'selected_mission') or not app.selected_mission or not photo_type:
         return
 
     app.photo_type = photo_type
-    sync_photos(app, app.mission_name, photo_type)
+    sync_photos(app, app.selected_mission, photo_type)
 
-    cache_file = os.path.join(app.cache_dir, app.username, app.mission_name, f"{app.mission_name}_cache.json")
+    cache_file = os.path.join(app.cache_dir, app.username, app.selected_mission, f"{app.selected_mission}_cache.json")
     cached_photos = load_cache(cache_file)
 
     if photo_type == "All":
@@ -241,7 +245,7 @@ def get_cached_image(app, photo):
         logging.error("Photo does not have a valid filename.")
         return None
 
-    mission_dir = os.path.join(app.cache_dir, app.username, app.mission_name)
+    mission_dir = os.path.join(app.cache_dir, app.username, app.selected_mission)
     photo_type = photo.get("photo_type", "Unprocessed")
     photo_type_dir = os.path.join(mission_dir, photo_type)
     local_image_path = os.path.join(photo_type_dir, filename)
@@ -262,7 +266,8 @@ def get_missions(app):
 
 def analyze_inspection(app):
     """Trigger analysis for the selected mission."""
-    if not hasattr(app, 'mission_name') or not app.mission_name:
+    # Check if we have app.selected_mission
+    if not hasattr(app, 'selected_mission') or not app.selected_mission:
         messagebox.showwarning("Warning", "Please select a mission.")
         app.root.focus_force()
         return
@@ -271,9 +276,10 @@ def analyze_inspection(app):
     try:
         response = requests.post(
             f'{app.SERVER_URL}/analyze',
-            json={'mission_name': app.mission_name},
+            json={'mission_name': app.selected_mission},
             headers=headers,
-            verify=app.CERT_PATH
+            # verify=app.CERT_PATH
+            verify=False
         )
         if response.status_code == 200:
             messagebox.showinfo("Success", response.json().get('message'))
@@ -302,7 +308,8 @@ def get_photos(app, mission_name, photo_type):
             f"{app.SERVER_URL}/missions/{mission_name}/photos",
             headers=headers,
             params=params,
-            verify=app.CERT_PATH
+            # verify=app.CERT_PATH
+            verify=False
         )
         if response.status_code == 200:
             photos = response.json()
@@ -372,7 +379,7 @@ def display_cached_photos(app, photos):
             continue
 
         # Construct the full path to the photo
-        mission_dir = os.path.join(app.cache_dir, app.username, app.mission_name)
+        mission_dir = os.path.join(app.cache_dir, app.username, app.selected_mission)
         photo_type_dir = os.path.join(mission_dir, photo_type)
         local_image_path = os.path.join(photo_type_dir, filename)
 

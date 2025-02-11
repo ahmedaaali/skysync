@@ -10,7 +10,8 @@ def fetch_missions(app):
         response = requests.get(
             f"{app.SERVER_URL}/missions/get_missions",
             headers=headers,
-            verify=app.CERT_PATH
+            # verify=app.CERT_PATH
+            verify=False
         )
         if response.status_code == 200:
             missions = response.json()

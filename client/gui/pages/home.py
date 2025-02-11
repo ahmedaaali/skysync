@@ -81,7 +81,7 @@ def create_mission(app):
         data = {'mission_name': mission_name}
 
         # Make the POST request
-        response = requests.post(url, json=data, headers=headers, verify=app.CERT_PATH)
+        response = requests.post(url, json=data, headers=headers, verify=False) #app.CERT_PATH)
 
         if response.status_code == 200:
             # Mission creation succeeded

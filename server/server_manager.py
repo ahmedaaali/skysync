@@ -3,22 +3,21 @@ import signal
 import subprocess
 import sys
 import time
-from urllib.parse import urlparse
-from flask import Flask
 import logging
+from urllib.parse import urlparse
+from flask import Flask, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
+import warnings
+
 from auth import auth_blueprint
 from photos import photos_blueprint
 from analysis import analysis_blueprint
 from database import init_db
 
-import warnings
-
-# Suppress Flask-Limiter UserWarning for in-memory storage
 warnings.filterwarnings("ignore", category=UserWarning)
 
 class ServerManager:
@@ -39,10 +38,14 @@ class ServerManager:
         self.GUNICORN_CMD = [
             "env",
             f"PYTHONPATH={self.SERVER_PATH}",
-            "gunicorn", "server:app",
+            "gunicorn",
+            "server:app",
             "--bind", f"{self.SERVER_HOST}:{self.SERVER_PORT}",
             "--certfile", self.CERT_PATH,
             "--keyfile", self.KEY_PATH,
+            "--ciphers", "ECDHE+AESGCM:!aNULL:!eNULL",
+            # "--ca-certs", "/path/to/ca.pem",
+            # "--cert-reqs", "2",  # 2 means ssl.CERT_REQUIRED in gunicorn
             "--workers", "4",
             "--timeout", "60",
             "--log-level", "critical"  
@@ -98,8 +101,8 @@ class ServerManager:
         self.SECRET_KEY = os.getenv('SECRET_KEY')
         self.DATABASE_URL = os.getenv('DATABASE_URL')
 
-        logging.info(f"SERVER_PATH: {self.SERVER_PATH}")
-        logging.info(f"DATABASE_URL: {self.DATABASE_URL}")
+        # logging.info(f"SERVER_PATH: {self.SERVER_PATH}")
+        # logging.info(f"DATABASE_URL: {self.DATABASE_URL}")
         # Validate required variables
         if not all([self.SECRET_KEY, self.DATABASE_URL, self.CERT_PATH, self.KEY_PATH]):
             raise ValueError("One or more required environment variables are missing.")
@@ -125,14 +128,19 @@ class ServerManager:
 
         init_db()
 
+        @app.route('/ping', methods=['GET'])
+        def ping():
+            """Simple health-check or availability endpoint."""
+            return jsonify({"status": "ok", "message": "Server is running"}), 200
+
         return app
 
     def start_processes(self, run_gui=False):
         """Start Gunicorn, Celery, and optionally the Server GUI as subprocesses."""
-        try:
-            env = os.environ.copy()
-            env['SERVER_PATH'] = self.SERVER_PATH
+        env = os.environ.copy()
+        env['SERVER_PATH'] = self.SERVER_PATH
 
+        try:
             print("Starting Gunicorn...")
             gunicorn_proc = subprocess.Popen(
                 self.GUNICORN_CMD,
@@ -165,6 +173,7 @@ class ServerManager:
                 self.processes.append(("Server GUI", gui_proc))
             else:
                 print("Server GUI will not be started.")
+
         except Exception as e:
             self.shutdown_logger.error(f"Error starting processes: {e}")
             self.stop_processes()

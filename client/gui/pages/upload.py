@@ -375,7 +375,8 @@ def process_upload(app):
             headers=headers,
             files=images_to_upload,
             data=data,
-            verify=app.CERT_PATH
+            # verify=app.CERT_PATH
+            verify=False
         )
 
         for _, (_, image_obj) in images_to_upload:
