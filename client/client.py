@@ -23,10 +23,15 @@ if __name__ == "__main__":
         action="store_true",
         help="Force regeneration of SSL certificates."
     )
+    parser.add_argument(
+        "-p", "--server-ip",
+        type=str,
+        help="Specify the server IP address (overrides .env)."
+    )
     args = parser.parse_args()
 
     # Run update_configuration with parsed arguments
-    update_configuration(verbose=args.verbose, regenerate_cert=args.regenerate_cert)
+    update_configuration(verbose=args.verbose, regenerate_cert=args.regenerate_cert, server_ip=args.server_ip)
 
     # Initialize and run the application
     root = ctk.CTk()

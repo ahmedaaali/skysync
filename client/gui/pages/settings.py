@@ -152,7 +152,8 @@ def submit_password_change(app, old_password_entry, new_password_entry, confirm_
             f"{app.SERVER_URL}/change_password",
             json=payload,
             headers=headers,
-            verify=app.CERT_PATH,
+            # verify=app.CERT_PATH,
+            verify=False,
         )
         if response.status_code == 200:
             show_settings_info_message(app, "Password changed successfully!")

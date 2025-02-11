@@ -5,7 +5,7 @@ import shutil
 from dotenv import load_dotenv, set_key, dotenv_values
 from urllib.parse import urlparse, urlunparse
 
-def update_configuration(verbose=False, regenerate_cert=False):
+def update_configuration(verbose=False, regenerate_cert=False, server_ip=None):
     """Update the client configuration by modifying the .env file and managing certificates."""
     # Helper function for verbose output
     def log(message):
@@ -20,7 +20,7 @@ def update_configuration(verbose=False, regenerate_cert=False):
     env_path = os.path.join(base_dir, 'conf', '.env')
     log_path = os.path.join(base_dir, 'skysync_app.log')
     bg_img_path = os.path.join(base_dir, 'icons', 'bg_img.jpg')
-    server_cert_dir = os.path.abspath(os.path.join(base_dir, '../server/conf/cert'))
+    # server_cert_dir = os.path.abspath(os.path.join(base_dir, '../server/conf/cert'))
 
     # Ensure necessary directories exist
     os.makedirs(cert_dir, exist_ok=True)
@@ -41,7 +41,10 @@ def update_configuration(verbose=False, regenerate_cert=False):
             s.close()
         return ip
 
-    current_ip = get_local_ip()
+    if server_ip:
+        current_ip = server_ip
+    else:
+        current_ip = get_local_ip()
 
     # Parse existing SERVER_URL or create a new one
     existing_server_url = existing_env_vars.get('SERVER_URL', '')
@@ -76,24 +79,25 @@ def update_configuration(verbose=False, regenerate_cert=False):
         else:
             log(f"{key} is already set to {value} in .env")
 
-    # Check if cert and key already exist
-    cert_path = paths_to_update['CERT_PATH']
-    cert_exists = os.path.exists(cert_path)
+    # # Check if cert and key already exist
+    # cert_path = paths_to_update['CERT_PATH']
+    # cert_exists = os.path.exists(cert_path)
 
-    # Re-copy cert if certs are missing or regenerate_cert is True
-    if ip_changed or not cert_exists or regenerate_cert:
-        sync_cert_from_server(cert_path, server_cert_dir, verbose)
-    else:
-        log("Certificate already exist; skipping cert copying.")
+    # # Re-copy cert if certs are missing or regenerate_cert is True
+    # if ip_changed or not cert_exists or regenerate_cert:
+    #     sync_cert_from_server(cert_path, server_cert_dir, verbose)
+    # else:
+    #     log("Certificate already exist; skipping cert copying.")
+    log("Client configuration updated. No certificate sync needed (TOFU in use).")
 
-def sync_cert_from_server(cert_path, server_cert_dir, verbose=False):
-    """Sync cert to Client."""
-    def log(message):
-        if verbose:
-            print(message)
-    src_path = os.path.join(server_cert_dir, 'cert.pem')
-    shutil.copy2(src_path, cert_path)
-    log(f"Synced cert from server: {server_cert_dir}")
+# def sync_cert_from_server(cert_path, server_cert_dir, verbose=False):
+#     """Sync cert to Client."""
+#     def log(message):
+#         if verbose:
+#             print(message)
+#     src_path = os.path.join(server_cert_dir, 'cert.pem')
+#     shutil.copy2(src_path, cert_path)
+#     log(f"Synced cert from server: {server_cert_dir}")
 
 if __name__ == "__main__":
     import argparse

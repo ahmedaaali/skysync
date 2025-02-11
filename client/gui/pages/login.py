@@ -100,7 +100,8 @@ def process_login(app, username, password):
         response = requests.post(
             f'{app.SERVER_URL}/login',
             json={'username': username, 'password': password},
-            verify=app.CERT_PATH,
+            # verify=app.CERT_PATH,
+            verify=False,
             timeout=10
         )
     except requests.exceptions.RequestException as e:

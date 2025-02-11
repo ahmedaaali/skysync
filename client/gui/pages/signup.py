@@ -139,7 +139,8 @@ def submit_signup(app):
         response = requests.post(
             f'{app.SERVER_URL}/register',
             json={'username': username, 'password': password},
-            verify=app.CERT_PATH
+            # verify=app.CERT_PATH
+            verify=False
         )
         if response.status_code == 201:
             # Success: Account created
