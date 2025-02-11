@@ -18,6 +18,7 @@ client/.DS_Store
 client/conf/.env
 client/conf/cert/
 client/conf/session.ini
+client/conf/pinned_fingerprint.txt
 client/__pycache__/
 client/conf/__pycache__/
 client/gui/__pycache__/

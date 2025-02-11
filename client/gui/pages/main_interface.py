@@ -1,7 +1,7 @@
 import customtkinter as ctk
 import tkinter as tk
 from PIL import Image, ImageTk
-
+import requests
 from .. import utils
 
 def show_main_interface(app):
@@ -46,6 +46,17 @@ def show_main_interface(app):
     # Sidebar Buttons
     create_sidebar_buttons(app)
 
+    app.drone_status_label = ctk.CTkLabel(
+        app.sidebar_frame, 
+        text="Drone: Checking...", 
+        font=app.body_font,
+        text_color="white"
+    )
+    app.drone_status_label.pack(pady=10)
+
+    # Start periodic check for drone status
+    update_drone_status(app)
+
     # Load Home Page by default
     app.show_home_page()
 
@@ -74,6 +85,35 @@ def handle_logout(app):
     app.is_logged_in = False
     app.token = None
     app.show_login_screen()
+
+def update_drone_status(app):
+    """
+    Periodically checks /drone/status on the server to see if the drone is online.
+    Updates the label in the sidebar.
+    """
+    if not app.token:
+        # If no token, just display ??? or do nothing
+        app.drone_status_label.configure(text="Drone: ???", text_color="yellow")
+    else:
+        try:
+            headers = {"x-access-token": app.token}
+            # If your server uses pinned-fingerprint or self-signed cert,
+            # you might do verify=False (similar to your RPi approach).
+            resp = requests.get(f"{app.SERVER_URL}/drone/status", headers=headers, verify=False, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("drone_online"):
+                    app.drone_status_label.configure(text="Drone: ONLINE", text_color="green")
+                else:
+                    app.drone_status_label.configure(text="Drone: OFFLINE", text_color="red")
+            else:
+                app.drone_status_label.configure(text="Drone: Error", text_color="red")
+        except Exception as e:
+            # e.g., network error
+            app.drone_status_label.configure(text="Drone: Error", text_color="red")
+
+    # Schedule the next status check in 5 seconds (5000 ms)
+    app.drone_status_label.after(5000, lambda: update_drone_status(app))
 
 # #FIXME:
 # def handle_menu_option(app, selected_option):
